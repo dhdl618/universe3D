@@ -8,7 +8,7 @@ function App() {
 
   return (
     <div className="App">
-      {isLoading && <Loading />}
+      {isLoading && <Loading isLoading={isLoading} />}
       <ThreeCanvas onLoadComplete={() => setIsLoading(false)}/>
     </div>
   );

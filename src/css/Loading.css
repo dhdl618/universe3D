@@ -2,17 +2,22 @@
     position: absolute;
     top: 0;
     left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color:rgb(49, 49, 49);
-    text-align: center;
+    background-image: url(../img/blue_nebulae_3.png);
     z-index: 10;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
 }
 
-.onload p {
-    position: relative;
-    color: white;
-    font-size: 30px;
-    font-weight: 600;
-    top: 50%;
+.loader-wrapper {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+.loader-wrapper p {
+    margin-top: 20px;
+    color: #dbdbdb;
+    font-size: 23px;
+    font-weight: 300;
+    margin-left: 10px;
 }

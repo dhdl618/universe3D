@@ -14,6 +14,7 @@ import hgtMap from '../img/Moon_002_height.png'
 
 const ThreeCanvas = ({onLoadComplete}) => {
     const canvasRef = useRef()
+    let isDestroyed = false
   
     useEffect(() => {
       const canvas = canvasRef.current
@@ -22,7 +23,9 @@ const ThreeCanvas = ({onLoadComplete}) => {
         antialias: true
       })
       renderer.setSize(window.innerWidth, window.innerHeight)
-    
+      renderer.shadowMap.enabled = true
+      renderer.shadowMap.type = THREE.PCFSoftShadowMap
+
       const scene = new THREE.Scene()
       
       const camera = new THREE.PerspectiveCamera(
@@ -66,11 +69,15 @@ const ThreeCanvas = ({onLoadComplete}) => {
         normalMap: universeNormalMap,
         metalness: 0.1,
         roughness: 0.8,
-        normalScale: new THREE.Vector2(0.8, 0.8)   
+        normalScale: new THREE.Vector2(0.8, 0.8) 
       })
       const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat)
-      sphereMesh.position.z = -150
+      sphereMesh.position.z = -1300
+      sphereMesh.name = 'moon'
       scene.add(sphereMesh)
+
+      const meshes = []
+      meshes.push(sphereMesh)
   
       gsap.to(
         sphereMesh.position,
@@ -88,10 +95,7 @@ const ThreeCanvas = ({onLoadComplete}) => {
           repeat: -1,         // 반복
           ease: "sine.inOut"  // 부드러운 곡선
       })
-  
-      // const clock = new THREE.Clock()
-      // const delta = clock.getDelta()
-  
+
       const dLightOffset = new THREE.Vector3(5, 5, 5)
   
       renderer.setAnimationLoop(() => {
@@ -106,11 +110,93 @@ const ThreeCanvas = ({onLoadComplete}) => {
   
         renderer.render(scene, camera)
       })
+
+      const setResize = () => {
+        camera.aspect = window.innerWidth / window.innerHeight
+        camera.updateProjectionMatrix()
+        renderer.setSize(window.innerWidth, window.innerHeight)
+      }
+      
+      window.addEventListener('resize', setResize)
+
+      const raycaster = new THREE.Raycaster()
+      const mouse = new THREE.Vector2()
+
+      const detectMesh = (e) => {
+        raycaster.setFromCamera(mouse, camera)
+        const intersects = raycaster.intersectObjects(meshes)
+        for (const item of intersects) {
+          if (isDestroyed) {
+            raycaster.setFromCamera(mouse, camera)
+            const intersects = raycaster.intersectObjects(meshes)
+            console.log(intersects)
+            for (const item of intersects) {
+              item.object.material.color.set(0xff0000)
+              break
+            }
+            return
+          }
+          if (item.object.name === 'moon') {
+            // 달 클릭 시, 폭발함수 수행
+            moonDestroyed()
+          }
+        }
+      }
+
+      canvas.addEventListener('click', e => {
+        mouse.x = e.clientX / canvas.clientWidth * 2 - 1
+        mouse.y = -(e.clientY / canvas.clientHeight * 2 - 1)
+
+        detectMesh()
+      })
+
+      // 파티클 생성
+      const moonDestroyed = () => {
+        // console.log("boom!!")
+        isDestroyed = true
+        
+        scene.remove(sphereMesh)
+        for (let i=0; i<meshes.length; i++) {
+          meshes.pop()
+        }
+
+        const particlesGroup = new THREE.Group()
+        const particlesNum = 150
+        // const particlesArray = []
+
+        for (let i=0; i<particlesNum; i++) {
+          const radius = Math.random() * 0.4 + 0.2;                 // 반지름: 0.2 ~ 0.6
+          const widthSegments = Math.floor(Math.random() * 4) + 2;  // 2~6
+          const heightSegments = Math.floor(Math.random() * 4) + 4; // 4~8
+          const geo = new THREE.SphereGeometry(radius, widthSegments, heightSegments)
+          const mat = new THREE.MeshStandardMaterial({map: universeMap})
+          const mesh = new THREE.Mesh(geo, mat)
+
+          mesh.castShadow = true
+          mesh.receiveShadow = true
+          mesh.position.copy(sphereMesh.position)
+
+          particlesGroup.add(mesh)
+          meshes.push(mesh)
+        }
+        scene.add(particlesGroup)
+        for (const item of particlesGroup.children) {
+          gsap.to(
+            item.position,
+            {
+              duration: 2,
+              x: (Math.random() - 0.5) * 30,
+              y: (Math.random() - 0.5) * 30,
+              z: (Math.random() - 1) * 20
+            }
+          )
+        }
+      }
   
       return () => {
         renderer.setAnimationLoop(null)
+        window.removeEventListener('resize', setResize)
       }
-      
     }, [])
   
     return (

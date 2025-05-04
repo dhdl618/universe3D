@@ -3,3 +3,39 @@ canvas {
     top: 0;
     left: 0;
 }
+
+.difficulty-level-div {
+    z-index: 5;
+    position: absolute;
+    top: 50px;
+    right: 70px;
+    color: white;
+    text-align: center;
+  }
+  .difficulty-level-div p {
+    font-size: 20px;
+    font-weight: 300;
+  }
+  .difficulty-level-btn {
+    margin-top: 3px;
+  }
+  .difficulty-level-btn button {
+    font-weight: 200;
+    margin-right: 3px;
+    border: none;
+    box-sizing: border-box;
+    border-radius: 5px;
+    background-color: rgba(0, 0, 0, 0);
+    color: white;
+    width: 70px;
+    height: 25px;
+    padding: 5px 5px 6px 5px;
+    line-height: 0;
+    vertical-align: middle;
+  }
+  .difficulty-level-btn button:hover {
+    cursor: pointer;
+  }
+  .clicked {
+    border: 2px solid rgb(200, 200, 200) !important;
+  }

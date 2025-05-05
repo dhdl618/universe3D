@@ -39,3 +39,31 @@ canvas {
   .clicked {
     border: 2px solid rgb(200, 200, 200) !important;
   }
+
+  .retry-btn-div {
+    position: absolute;
+    z-index: 5;
+    top: 50px;
+    right: 70px;
+    color: white;
+    text-align: center;
+  }
+  .retry-btn {
+    font-weight: 200;
+    border: 1px solid white;
+    box-sizing: border-box;
+    border-radius: 5px;
+    background-color: rgba(0, 0, 0, 0);
+    color: white;
+    width: 70px;
+    height: 25px;
+    padding: 5px 5px 6px 5px;
+    line-height: 0;
+    vertical-align: middle;
+  }
+  .retry-btn:hover {
+    cursor: pointer;
+    background-color: white;
+    color: black;
+    font-weight: 300;
+  }

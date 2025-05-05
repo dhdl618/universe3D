@@ -14,17 +14,70 @@ import hgtMap from '../img/Moon_002_height.png'
 
 const ThreeCanvas = ({onLoadComplete}) => {
   const canvasRef = useRef()
+  const isDone = useRef(false)
+  const particlesGroupRef = useRef()
+  const sphereMeshRef = useRef()
+  const sceneRef = useRef()
+  const meshesRef = useRef()
   let isDestroyed = false
   let particlesGroup
+  let failedCount = 0
+  
+  const countColor = ['red', 'orange', 'yellow', 'rgb(0, 200, 0)', 'rgb(0, 0, 255)', 'rgb(0, 0, 100)','indigo', 'white']
 
   const gameLevel = useRef('default')
 
   const [hideBtn, setHideBtn] = useState(false)
+  const [isFind, setIsFind] = useState(false)
   const [mode, setMode] = useState('default')
   const modeChange = (e) => {
     setMode(e)
     gameLevel.current = e
     console.log(gameLevel.current)
+  }
+  const retryGame = () => {
+    setIsFind(false)
+    isDone.current = false
+
+    const particles = particlesGroupRef.current?.children
+    if (!particles || particles.length === 0) return
+
+    particles.forEach((particle, index) => {
+      gsap.to(
+        particle.position,
+        {
+          duration: 3,
+          x: 0,
+          y: 0,
+          z: -10,
+          onComplete: () => {
+            if (index === particles.length - 1) {
+              sceneRef.current.remove(particlesGroupRef.current)
+              particlesGroupRef.current = null
+
+              if (sphereMeshRef.current) {
+                sphereMeshRef.current.scale.set(0.2, 0.2, 0.2)
+                sphereMeshRef.current.position.set(0, 0, -10)
+                gsap.to(
+                  sphereMeshRef.current.scale,
+                  {
+                    duration: 3,
+                    x: 1,
+                    y: 1,
+                    z: 1
+                  }
+                )
+                sceneRef.current.add(sphereMeshRef.current)
+                meshesRef.current.push(sphereMeshRef.current)
+                setHideBtn(false)
+              }
+            }
+          }
+        }
+      )
+    })
+
+    isDestroyed = false
   }
 
   useEffect(() => {
@@ -38,6 +91,7 @@ const ThreeCanvas = ({onLoadComplete}) => {
     renderer.shadowMap.type = THREE.PCFSoftShadowMap
 
     const scene = new THREE.Scene()
+    sceneRef.current = scene
     
     const camera = new THREE.PerspectiveCamera(
       75,
@@ -76,7 +130,7 @@ const ThreeCanvas = ({onLoadComplete}) => {
     const sphereMat = new THREE.MeshStandardMaterial({
       map: universeMap,
       roughnessMap: universeRoughnessMap,
-      // aoMap: universeAoMap,
+      aoMap: universeAoMap,
       normalMap: universeNormalMap,
       metalness: 0.1,
       roughness: 0.8,
@@ -85,10 +139,12 @@ const ThreeCanvas = ({onLoadComplete}) => {
     const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat)
     sphereMesh.position.z = -1300
     sphereMesh.name = 'moon'
+    sphereMeshRef.current = sphereMesh
     scene.add(sphereMesh)
 
     const meshes = []
     meshes.push(sphereMesh)
+    meshesRef.current = meshes
 
     gsap.to(
       sphereMesh.position,
@@ -137,6 +193,8 @@ const ThreeCanvas = ({onLoadComplete}) => {
       if (mouseMoved) return
       raycaster.setFromCamera(mouse, camera)
       const intersects = raycaster.intersectObjects(meshes)
+      
+      // 클릭한 것이 달일 때 수행
       for (const item of intersects) {
         if (item.object.name === 'moon') {
           // 달 클릭 시, 폭발함수 수행
@@ -147,19 +205,38 @@ const ThreeCanvas = ({onLoadComplete}) => {
         }
       }
       
-      if (isDestroyed) {
+      // 달이 폭파되고 클릭한 것이 파편들일 때 수행
+      if (isDestroyed && !isDone.current) {
         for (const item of intersects) {     
           if (particlesGroup.children.includes(item.object)) {
-            if(item.object.userData.url) {
-              console.log(item.object.userData.url)
-              item.object.material.color.set('yellow')
+            if(item.object.userData.url && !item.object.userData.clicked) {
+              // console.log(item.object.userData.url)
+              console.log('찾았습니다. 실패횟수:', failedCount)
+              item.object.material.color.set('pink')
+              item.object.userData.clicked = true
+              failedCount = 0
+              setIsFind(true)
+              isDone.current = true
               return
-            } 
-            particlesGroup.remove(item.object)
-            const deleteIndex = meshes.findIndex(mesh => mesh.name === item.object.name)
-            if(deleteIndex !== -1) {
-              meshes.splice(deleteIndex, 1)
+            } else {
+              if (failedCount === 8) {
+                alert("기회가 소진되었습니다")
+              } else {
+                if (!item.object.userData.clicked) {
+                  item.object.material.color.set(countColor[failedCount])
+                  item.object.userData.clicked = true
+                  failedCount++
+                } else {
+                  console.log("이미 클릭했습니다.")
+                }
+              }
             }
+            // // 삭제
+            // particlesGroup.remove(item.object)
+            // const deleteIndex = meshes.findIndex(mesh => mesh.name === item.object.name)
+            // if(deleteIndex !== -1) {
+            //   meshes.splice(deleteIndex, 1)
+            // }
           }
           break      
         }
@@ -219,13 +296,16 @@ const ThreeCanvas = ({onLoadComplete}) => {
         mesh.name = i
         if (i % 3 === 0) {
           mesh.userData = {
-            url: 'url exist'
+            url: 'url exist',
+            clicked: false
           }
         }
 
         particlesGroup.add(mesh)
         meshes.push(mesh)
       }
+      particlesGroupRef.current = particlesGroup
+      meshesRef.current = meshes
       scene.add(particlesGroup)
       for (const item of particlesGroup.children) {
         gsap.to(
@@ -280,6 +360,11 @@ const ThreeCanvas = ({onLoadComplete}) => {
           <button className={`${mode === 'hard' ? 'clicked' : ""}`} onClick={() => modeChange('hard')}>Hard</button>
           <button className={`${mode === 'extreme' ? 'clicked' : ""}`} onClick={() => modeChange('extreme')}>Extreme</button>
         </div>
+      </div>
+      }
+      {isFind && 
+      <div className='retry-btn-div'>
+        <button className='retry-btn' onClick={retryGame}>Retry</button>
       </div>
       }
     </div>

@@ -19,14 +19,16 @@ const ThreeCanvas = ({onLoadComplete}) => {
   const sphereMeshRef = useRef()
   const sceneRef = useRef()
   const meshesRef = useRef()
+  const moonTouched = useRef(false)
   let isDestroyed = false
   let particlesGroup
   let failedCount = 0
   
-  const countColor = ['red', 'orange', 'yellow', 'rgb(0, 200, 0)', 'rgb(0, 0, 255)', 'rgb(0, 0, 100)','indigo', 'white']
+  const countColor = ['red', 'orange', 'yellow', 'rgb(0, 200, 0)', 'rgb(0, 0, 255)', 'rgb(0, 0, 100)','indigo', 'black']
 
   const gameLevel = useRef('default')
 
+  const [gameOver, setGameOver] = useState(false)
   const [hideBtn, setHideBtn] = useState(false)
   const [isFind, setIsFind] = useState(false)
   const [mode, setMode] = useState('default')
@@ -36,13 +38,16 @@ const ThreeCanvas = ({onLoadComplete}) => {
     console.log(gameLevel.current)
   }
   const retryGame = () => {
+    setGameOver(false)
     setIsFind(false)
     isDone.current = false
+    moonTouched.current = false
 
     const particles = particlesGroupRef.current?.children
     if (!particles || particles.length === 0) return
 
     particles.forEach((particle, index) => {
+      particle.userData.clicked = true // 모으는 시점에 클릭할 때를 방지
       gsap.to(
         particle.position,
         {
@@ -99,7 +104,7 @@ const ThreeCanvas = ({onLoadComplete}) => {
       0.1,
       1000
     )
-    // camera.position.set(0, 0, 10)
+    camera.position.set(0, 0, 0)
     scene.add(camera)
 
     const controls = new OrbitControls(camera, renderer.domElement)
@@ -168,7 +173,8 @@ const ThreeCanvas = ({onLoadComplete}) => {
     renderer.setAnimationLoop(() => {
       sphereMesh.rotation.y += THREE.MathUtils.degToRad(0.01)
 
-      controls.target.copy(sphereMesh.position)
+      // controls.target.copy(sphereMesh.position)
+      controls.target.copy(new THREE.Vector3(0, 0, -10))
       controls.update()
 
       dLight.position.copy(sphereMesh.position).add(dLightOffset)
@@ -196,13 +202,100 @@ const ThreeCanvas = ({onLoadComplete}) => {
       
       // 클릭한 것이 달일 때 수행
       for (const item of intersects) {
-        if (item.object.name === 'moon') {
+        if (!moonTouched.current && item.object.name === 'moon') {
           // 달 클릭 시, 폭발함수 수행
           if (sphereMesh.position.z === -10) {
-            moonDestroyed()
+            moonTouched.current = true
+            // 점점 극대화 시키기 위하여 타임라인으로 실행
+            const timeLine = gsap.timeline()
+            timeLine.to(
+              sphereMesh.position,
+              {
+                duration: 0.08,
+                x: 0.2,
+                repeat: 5,
+                yoyo: true
+              }
+            )
+            .to(
+              sphereMesh.position,
+              {
+                duration: 0.07,
+                x: 0.4,
+                repeat: 5,
+                yoyo: true
+              }
+            )
+            .to(
+              sphereMesh.position,
+              {
+                duration: 0.06,
+                x: 0.5,
+                repeat: 5,
+                yoyo: true
+              }
+            )
+            .to(
+              sphereMesh.position,
+              {
+                duration: 0.05,
+                x: 0.7,
+                repeat: 10,
+                yoyo: true
+              }
+            )
+            .call(() => {
+              moonDestroyed()
+            })
           }
           return
         }
+      }
+
+      const showStone = (item) => {
+        const pos = item.object.position
+        const direction = new THREE.Vector3()
+        camera.getWorldDirection(direction)
+
+        const targetPosition = new THREE.Vector3().copy(camera.position).add(direction.multiplyScalar(5))
+        
+        gsap.to(
+          pos,
+          {
+            duration: 2,
+            x: targetPosition.x,
+            y: targetPosition.y,
+            z: targetPosition.z,
+            ease: 'power2.out',
+            // onComplete: () => {
+            //   item.object.geometry.dispose()
+            //   item.object.geometry = new THREE.BoxGeometry(1, 2, 0.2)
+            // }
+          }
+        )
+      }
+
+      const showAnimation = (item) => {
+        // console.log(item)
+        const pos = item.object.position
+        const randomDirection = Math.round(Math.random())
+        const timeline = gsap.timeline()
+
+        timeline.to(pos, {
+          duration: 1,
+          x: randomDirection === 1 ? "+=50" : "-=50",
+          y: randomDirection === 1 ? "+=50" : "-=50",
+          ease: "sine.inOut",
+          yoyo: true,
+          repeat: 10
+        }, 0); // 0초부터 시작
+      
+        // z 방향으로 천천히 날아감
+        timeline.to(pos, {
+          duration: 25,
+          z: pos.z - 1000,
+          ease: "power2.out"
+        }, 0); // 동시에 실행
       }
       
       // 달이 폭파되고 클릭한 것이 파편들일 때 수행
@@ -212,31 +305,28 @@ const ThreeCanvas = ({onLoadComplete}) => {
             if(item.object.userData.url && !item.object.userData.clicked) {
               // console.log(item.object.userData.url)
               console.log('찾았습니다. 실패횟수:', failedCount)
-              item.object.material.color.set('pink')
               item.object.userData.clicked = true
               failedCount = 0
               setIsFind(true)
               isDone.current = true
+              showStone(item)
               return
             } else {
               if (failedCount === 8) {
-                alert("기회가 소진되었습니다")
+                setGameOver(true)
+                setIsFind(true)
+                isDone.current = true
+                failedCount = 0
               } else {
                 if (!item.object.userData.clicked) {
-                  item.object.material.color.set(countColor[failedCount])
                   item.object.userData.clicked = true
                   failedCount++
+                  showAnimation(item)
                 } else {
                   console.log("이미 클릭했습니다.")
                 }
               }
             }
-            // // 삭제
-            // particlesGroup.remove(item.object)
-            // const deleteIndex = meshes.findIndex(mesh => mesh.name === item.object.name)
-            // if(deleteIndex !== -1) {
-            //   meshes.splice(deleteIndex, 1)
-            // }
           }
           break      
         }
@@ -255,6 +345,24 @@ const ThreeCanvas = ({onLoadComplete}) => {
       // console.log("boom!!")
       isDestroyed = true
       setHideBtn(true)
+
+      let urlStone
+      let usedStoneNum = []
+
+      switch (gameLevel.current) {
+        case 'normal':
+          urlStone = 10
+          break;
+        case 'hard':
+          urlStone = 15
+          break;
+        case 'extreme':
+          urlStone = 20
+          break;
+        default:
+          urlStone = 5
+          break;
+      }
       
       scene.remove(sphereMesh)
       for (let i=0; i<meshes.length; i++) {
@@ -264,18 +372,24 @@ const ThreeCanvas = ({onLoadComplete}) => {
       particlesGroup = new THREE.Group()
       let particlesNum
       switch (gameLevel.current) {
-        case 'default':
-          particlesNum = 30
-          break;
         case 'normal':
           particlesNum = 60
           break;
         case 'hard':
           particlesNum = 100
           break;
-        default:
+        case 'extreme':
           particlesNum = 150
           break;
+        default:
+          particlesNum = 30
+          break;
+      }
+
+      while (usedStoneNum.length < urlStone) {
+        let num = Math.round(Math.random() * (particlesNum - 1))
+        if (usedStoneNum.includes(num)) continue
+        usedStoneNum.push(num)
       }
 
       for (let i=0; i<particlesNum; i++) {
@@ -294,11 +408,16 @@ const ThreeCanvas = ({onLoadComplete}) => {
         mesh.receiveShadow = true
         mesh.position.copy(sphereMesh.position)
         mesh.name = i
-        if (i % 3 === 0) {
-          mesh.userData = {
-            url: 'url exist',
-            clicked: false
-          }
+        mesh.userData = {
+          clicked: false
+        }
+        
+        for (let j=0; j<usedStoneNum.length; j++) {
+          if (usedStoneNum[j] === i) {
+            mesh.userData = {
+              url: "here"
+            }
+          } 
         }
 
         particlesGroup.add(mesh)
@@ -365,6 +484,11 @@ const ThreeCanvas = ({onLoadComplete}) => {
       {isFind && 
       <div className='retry-btn-div'>
         <button className='retry-btn' onClick={retryGame}>Retry</button>
+      </div>
+      }
+      {gameOver && 
+      <div className='failed-content-div'>
+        <p className='failed-content'>Mission Failed</p>
       </div>
       }
     </div>

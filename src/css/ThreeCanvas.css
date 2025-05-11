@@ -67,3 +67,26 @@ canvas {
     color: black;
     font-weight: 300;
   }
+  
+  .failed-content-div {
+    position: absolute;
+    z-index: 5;
+    top: 50px;
+    color: white;
+    text-align: center;
+    width: auto;
+    height: 50px;
+    border: 2px solid rgb(200, 200, 200);
+    box-sizing: border-box;
+    border-radius: 5px;
+    background-color: rgba(0, 0, 0, 0);
+    line-height: 1;
+    padding: 5px 15px;
+    left: 50%;
+    transform: translate(-50%);
+  }
+  .failed-content {
+    font-weight: 400;
+    font-size: 30px;
+    color: rgb(200, 200, 200);
+  }
